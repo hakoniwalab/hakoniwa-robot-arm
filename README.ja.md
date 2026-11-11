@@ -4,6 +4,19 @@
 
 `hakoniwa-robot-arm` は、URDF / Xacro で記述されたROSロボットモデルをもとに、箱庭上でロボットアームシミュレータを構築・実行するためのシミュレーション開発基盤です。
 
+<table>
+  <tr>
+    <td align="center"><img src="docs/media/nova5.gif" width="270" alt="DOBOT Nova5 following a joint trajectory"></td>
+    <td align="center"><img src="docs/media/so101-pick-and-place.gif" width="270" alt="SO-101 picking up a cube and placing it to the side"></td>
+    <td align="center"><img src="docs/media/excavator.gif" width="270" alt="MathScavator9000 excavator digging"></td>
+  </tr>
+  <tr>
+    <td align="center">DOBOT Nova5：関節軌道</td>
+    <td align="center">SO-101：キューブをつかんで置く（<a href="docs/procedures/so101-grasp-demo.md">手順</a>）</td>
+    <td align="center">ショベルカー：掘削（実験的）</td>
+  </tr>
+</table>
+
 ロボットモデルをMuJoCo形式へ変換し、[箱庭ロボットランタイム](https://github.com/hakoniwalab/hakoniwa-robot-runtime)と組み合わせることで、実機を使用せずに関節制御や状態取得を行えます。また、ROS 2からの `JointTrajectory` による制御と `JointState` の取得にも対応しています。
 
 現在の対応状況：
