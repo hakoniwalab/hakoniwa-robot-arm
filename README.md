@@ -2,9 +2,11 @@
 
 English | [日本語](README.ja.md)
 
-`hakoniwa-robot-arm` builds and runs robot arm simulators on [Hakoniwa](https://github.com/hakoniwalab) from ROS robot models written in URDF / Xacro.
+`hakoniwa-robot-arm` runs MuJoCo simulations of robot arms on Windows, macOS and Ubuntu, and lets you control them from ROS 2 without real hardware. On macOS and Windows, ROS 2 runs in Docker.
 
-It converts a robot model to MuJoCo (MJCF) and runs it on the [Hakoniwa Robot Runtime](https://github.com/hakoniwalab/hakoniwa-robot-runtime). You can then command the joints and read their state without real hardware, either directly through Hakoniwa or from ROS 2 with `JointTrajectory` and `JointState`.
+It is built on [Hakoniwa](https://github.com/hakoniwalab) and the [Hakoniwa Robot Runtime](https://github.com/hakoniwalab/hakoniwa-robot-runtime). Each robot starts from its ROS robot model (URDF / Xacro), which is converted to MuJoCo (MJCF). You command the joints and read their state either directly through Hakoniwa or from ROS 2 with `JointTrajectory` and `JointState`.
+
+An arbitrary URDF does not work as is. Each robot needs its own Recipe: where the model comes from, how it is normalized, and its actuator and controller settings. The robots below are the ones this repository provides.
 
 > The detailed procedures and design documents under [`docs/`](docs/README.md) are written in Japanese. This page gives the overview and points to the right procedure for your environment.
 
@@ -21,7 +23,7 @@ Only Nova5 has been verified end to end, including ROS 2. The common procedures 
 
 ## What you can do
 
-- Convert a URDF / Xacro robot model to MuJoCo (MJCF)
+- Convert the URDF / Xacro model of a supported robot to MuJoCo (MJCF)
 - Run a physics simulation of the robot arm in MuJoCo
 - Control the joints through the Hakoniwa Robot Runtime
 - Send joint trajectories from ROS 2 (`trajectory_msgs/msg/JointTrajectory`)
@@ -31,7 +33,7 @@ Only Nova5 has been verified end to end, including ROS 2. The common procedures 
 
 ## Execution modes
 
-The simulator and ROS 2 are connected over TCP, so they can run in different places. Choose one mode. ROS 2 runs natively only on Ubuntu; on macOS and Windows it runs in Docker.
+The simulator and ROS 2 are connected over TCP, so they can run in different places. Choose one mode. In the configurations verified by this project, ROS 2 runs natively on Ubuntu and in Docker on macOS and Windows.
 
 | Mode | Host OS | Simulator | ROS 2 | Procedure |
 | --- | --- | --- | --- | --- |
