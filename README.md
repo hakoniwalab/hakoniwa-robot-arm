@@ -8,6 +8,19 @@ It is built on [Hakoniwa](https://github.com/hakoniwalab) and the [Hakoniwa Robo
 
 An arbitrary URDF does not work as is. Each robot needs its own Recipe: where the model comes from, how it is normalized, and its actuator and controller settings. The robots below are the ones this repository provides.
 
+<table>
+  <tr>
+    <td align="center"><img src="docs/media/nova5.gif" width="270" alt="DOBOT Nova5 following a joint trajectory"></td>
+    <td align="center"><img src="docs/media/so101-pick-and-place.gif" width="270" alt="SO-101 picking up a cube and placing it to the side"></td>
+    <td align="center"><img src="docs/media/excavator.gif" width="270" alt="MathScavator9000 excavator digging"></td>
+  </tr>
+  <tr>
+    <td align="center">DOBOT Nova5: joint trajectory</td>
+    <td align="center">SO-101: cube pick and place (<a href="docs/procedures/so101-grasp-demo.md">procedure</a>)</td>
+    <td align="center">Excavator: digging (experimental)</td>
+  </tr>
+</table>
+
 > The detailed procedures and design documents under [`docs/`](docs/README.md) are written in Japanese. This page gives the overview and points to the right procedure for your environment.
 
 ## Supported robots
