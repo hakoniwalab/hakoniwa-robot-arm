@@ -57,7 +57,9 @@ def robot_paths(robot_id: str) -> tuple[Path, Path, Path]:
     return recipe_dir, manifest_path, (recipe_dir / pdu_def_value).resolve()
 
 
-def resolve_pdu_contract(robot_id: str) -> tuple[str, list[dict[str, object]], Path, list[Path]]:
+def resolve_pdu_contract(
+    robot_id: str, joint_trajectory: bool = True,
+) -> tuple[str, list[dict[str, object]], Path, list[Path]]:
     recipe_dir, manifest_path, pdu_def_path = robot_paths(robot_id)
     manifest = load_json(manifest_path)
     pdu_def = load_json(pdu_def_path)
@@ -100,7 +102,10 @@ def resolve_pdu_contract(robot_id: str) -> tuple[str, list[dict[str, object]], P
         component_config = load_json((recipe_dir / config_value).resolve())
         if not isinstance(component_config, dict):
             continue
-        if kind == "controller" and component.get("type") == "joint_trajectory_controller":
+        # With ros2_control the ROS side interpolates (its joint_trajectory_controller):
+        # the Runtime's trajectory input is not bridged, so that nothing interpolates twice.
+        if (joint_trajectory and kind == "controller"
+                and component.get("type") == "joint_trajectory_controller"):
             trajectory_input = component_config.get("input")
             if isinstance(trajectory_input, dict) and isinstance(trajectory_input.get("pdu_name"), str):
                 direction_by_name[trajectory_input["pdu_name"]] = "ros_to_pdu"
@@ -139,8 +144,10 @@ def config_root(robot_id: str) -> Path:
     )
 
 
-def configure(robot_id: str, port: int, remote_host: str | None = None) -> Path:
-    robot_name, pdus, pdu_def_path, type_paths = resolve_pdu_contract(robot_id)
+def configure(
+    robot_id: str, port: int, remote_host: str | None = None, joint_trajectory: bool = True,
+) -> Path:
+    robot_name, pdus, pdu_def_path, type_paths = resolve_pdu_contract(robot_id, joint_trajectory)
     selected_remote_host = remote_host or os.environ.get(
         "HAKONIWA_ROS2_TCP_HOST", "host.docker.internal"
     )
@@ -337,6 +344,10 @@ def parser() -> argparse.ArgumentParser:
         help="host bridge step in usec; equal to the Robot Runtime physics step (default 2000)",
     )
     result.add_argument(
+        "--no-joint-trajectory", dest="joint_trajectory", action="store_false",
+        help="do not bridge the Runtime's JointTrajectory input (ros2_control interpolates on the ROS side)",
+    )
+    result.add_argument(
         "--remote-host",
         default=None,
         help="TCP server hostname seen by the ROS side (default: HAKONIWA_ROS2_TCP_HOST or host.docker.internal)",
@@ -350,7 +361,7 @@ def main(argv: list[str] | None = None) -> int:
         if not 1 <= args.port <= 65535:
             raise Ros2TcpError(f"port must be between 1 and 65535: {args.port}")
         if args.command == "configure":
-            configure(args.robot, args.port, args.remote_host)
+            configure(args.robot, args.port, args.remote_host, args.joint_trajectory)
             return 0
         if args.command == "config-root":
             print(config_root(args.robot))
