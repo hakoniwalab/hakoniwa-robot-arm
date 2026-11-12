@@ -402,6 +402,7 @@ def configure(
     arm_environment: bool = False,
     realtime_sync_cycle_msec: int = 0,
     ros2_control: bool = False,
+    sensors: bool = False,
 ) -> int:
     # ros2_control is the ROS 2 TCP bridge without the Runtime's trajectory input.
     ros2_tcp = ros2_tcp or ros2_control
@@ -421,11 +422,19 @@ def configure(
     )
     if effective_digging_worksite:
         materialize_excavator_worksite()
+    if sensors:
+        # The sensor manifest is the arm environment plus the sensors (the build
+        # needs --sensors as well).
+        if ROBOT_ID == "excavator" or effective_digging_worksite:
+            raise RecipeError("--sensors is available only for the arm environment")
+        arm_environment = True
     if arm_environment and ROBOT_ID != "excavator":
         materialize_arm_environment()
     manifest_name = "asset-manifest.json"
     if effective_digging_worksite:
         manifest_name = "asset-manifest-digging.json"
+    elif sensors:
+        manifest_name = "asset-manifest-sensors.json"
     elif arm_environment:
         manifest_name = "asset-manifest-environment.json"
     manifest_template = required(
@@ -468,7 +477,8 @@ def configure(
         import ros2_tcp as ros2_tcp_recipe
 
         config_root = ros2_tcp_recipe.configure(
-            ROBOT_ID, ros2_tcp_recipe.DEFAULT_PORT, joint_trajectory=not ros2_control)
+            ROBOT_ID, ros2_tcp_recipe.DEFAULT_PORT, joint_trajectory=not ros2_control,
+            manifest_name=manifest_name)
         bridge_binary = required(
             ros2_tcp_recipe.host_bridge_binary(ROBOT_ID),
             "Foundation PDU bridge",
@@ -610,6 +620,7 @@ def configure(
     print(f"Gamepad         : {'enabled' if gamepad_controller else 'disabled'}")
     print(f"Digging worksite: {'enabled' if effective_digging_worksite else 'disabled'}")
     print(f"Arm environment : {'enabled' if arm_environment else 'disabled'}")
+    print(f"Sensors         : {'enabled' if sensors else 'disabled'}")
     print(
         "Realtime pacing : "
         + (
@@ -687,7 +698,24 @@ def run(command: list[str], *, cwd: Path | None = None, env: dict[str, str] | No
     return subprocess.run(command, cwd=cwd, env=env, check=False).returncode
 
 
-def build(mujoco_root: Path, headless: bool) -> int:
+def sensor_cmake_args() -> list[str]:
+    """The sensor stage and the linked sensor implementations, from the environment:
+    HAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS (default hakoniwa) and
+    HAKO_ROBOT_ARM_SENSOR_LIBRARIES (the implementation libraries, required)."""
+    implementations = os.environ.get("HAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS", "hakoniwa").strip()
+    libraries = os.environ.get("HAKO_ROBOT_ARM_SENSOR_LIBRARIES", "").strip()
+    if not libraries:
+        raise RecipeError(
+            "--sensors needs HAKO_ROBOT_ARM_SENSOR_LIBRARIES: the libraries of the sensor "
+            "implementations (the hakoniwa implementation is provided by Hakoniwa Lab)")
+    return [
+        "-DHAKO_ROBOT_ARM_ENABLE_SENSOR=ON",
+        f"-DHAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS={implementations}",
+        f"-DHAKO_ROBOT_ARM_SENSOR_LIBRARIES={libraries}",
+    ]
+
+
+def build(mujoco_root: Path, headless: bool, sensors: bool = False) -> int:
     foundation, workspace = workspace_and_foundation()
     foundation_consumer = load_foundation_consumer_module()
     required(mujoco_root / "src/CMakeLists.txt", "hakoniwa-mujoco-robots sibling")
@@ -700,6 +728,7 @@ def build(mujoco_root: Path, headless: bool) -> int:
         f"-DHAKONIWA_MUJOCO_ROBOTS_ROOT={mujoco_root}",
         "-DHAKO_USE_THIRDPARTY_HAKONIWA=OFF",
         f"-DHAKO_ARM_ENABLE_VIEWER={'OFF' if headless else 'ON'}",
+        *(sensor_cmake_args() if sensors else []),
     ]
     if platform.system() == "Windows":
         # FetchContent's MSBuild sub-builds nest about 140 characters below
@@ -998,6 +1027,10 @@ def parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS)
     result.add_argument("--digging-worksite", action="store_true", help="select the explicit HField, accepted bucket-proxy, and simplified-soil manifest")
     result.add_argument("--environment", action="store_true", help="select the robot-specific Recipe environment")
+    result.add_argument(
+        "--sensors", action="store_true",
+        help="SO-101: the arm environment with the overhead 3D LiDAR and the wrist force-torque sensor "
+             "(configure and build)")
     result.add_argument("--realtime-sync-cycle-msec", type=int, default=0, help="reconcile simulation and wall time at this simulation-time interval; 0 disables pacing")
     result.add_argument("--viewer", action="store_true", help="open the bucket proxy calibration Viewer")
     result.add_argument("--mujoco-root", type=Path, default=sibling("hakoniwa-mujoco-robots", "HAKONIWA_MUJOCO_ROBOTS_ROOT"))
@@ -1019,11 +1052,12 @@ def main(argv: list[str] | None = None) -> int:
                 args.environment,
                 args.realtime_sync_cycle_msec,
                 args.ros2_control,
+                args.sensors,
             )
         if args.command == "bucket-proxy":
             return bucket_proxy(args.viewer)
         if args.command == "build":
-            return build(absolute(args.mujoco_root), args.headless)
+            return build(absolute(args.mujoco_root), args.headless, args.sensors)
         if args.command == "doctor":
             return doctor(absolute(args.mujoco_root))
         if args.command == "start":

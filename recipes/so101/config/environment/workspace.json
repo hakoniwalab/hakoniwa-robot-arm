@@ -82,5 +82,15 @@
       "rgba": [0.20, 0.90, 0.35, 1.0],
       "friction": [1.0, 0.02, 0.001]
     }
+  ],
+  "sensor_housings": [
+    {
+      "name": "lidar_overhead_housing",
+      "pos_m": [0.28, 0.25, 0.5],
+      "type": "cylinder",
+      "radius_m": 0.035,
+      "half_height_m": 0.02,
+      "rgba": [0.10, 0.10, 0.10, 1.0]
+    }
   ]
 }

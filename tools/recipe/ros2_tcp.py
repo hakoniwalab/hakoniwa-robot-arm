@@ -22,6 +22,15 @@ DEFAULT_PORT = 54001
 # commands meanwhile, and the Hakoniwa core refuses the next command PDU, which
 # the bridge then drops.
 DEFAULT_BRIDGE_DELTA_USEC = 2000
+# State outputs without a rate, and the fastest a state output is sent.
+DEFAULT_STATE_INTERVAL_MS = 20
+
+
+def state_interval_ms(pdu: dict[str, object]) -> int:
+    rate = pdu.get("update_rate_hz")
+    if not isinstance(rate, (int, float)) or rate <= 0:
+        return DEFAULT_STATE_INTERVAL_MS
+    return max(DEFAULT_STATE_INTERVAL_MS, int(round(1000.0 / float(rate))))
 DEFAULT_ROBOT = "nova5"
 
 
@@ -43,9 +52,9 @@ def write_json(path: Path, data: object) -> None:
     temporary.replace(path)
 
 
-def robot_paths(robot_id: str) -> tuple[Path, Path, Path]:
+def robot_paths(robot_id: str, manifest_name: str = "asset-manifest.json") -> tuple[Path, Path, Path]:
     recipe_dir = arm_root() / "recipes" / robot_id
-    manifest_path = recipe_dir / "asset-manifest.json"
+    manifest_path = recipe_dir / manifest_name
     if not manifest_path.is_file():
         raise Ros2TcpError(f"robot manifest not found: {manifest_path}")
     manifest = load_json(manifest_path)
@@ -58,9 +67,11 @@ def robot_paths(robot_id: str) -> tuple[Path, Path, Path]:
 
 
 def resolve_pdu_contract(
-    robot_id: str, joint_trajectory: bool = True,
+    robot_id: str, joint_trajectory: bool = True, manifest_name: str = "asset-manifest.json",
 ) -> tuple[str, list[dict[str, object]], Path, list[Path]]:
-    recipe_dir, manifest_path, pdu_def_path = robot_paths(robot_id)
+    # The selected manifest decides the bridged PDUs: actuators and the trajectory
+    # input go ROS -> PDU, every state output (joint states, sensor outputs) PDU -> ROS.
+    recipe_dir, manifest_path, pdu_def_path = robot_paths(robot_id, manifest_name)
     manifest = load_json(manifest_path)
     pdu_def = load_json(pdu_def_path)
     if not isinstance(manifest, dict) or not isinstance(pdu_def, dict):
@@ -92,6 +103,7 @@ def resolve_pdu_contract(
     if not isinstance(components, list):
         raise Ros2TcpError("manifest components must be an array")
     direction_by_name: dict[str, str] = {}
+    rate_by_name: dict[str, float] = {}
     for component in components:
         if not isinstance(component, dict):
             continue
@@ -116,12 +128,18 @@ def resolve_pdu_contract(
             direction_by_name[str(pdu_config["pdu_name"])] = "ros_to_pdu"
         elif kind == "state_output":
             direction_by_name[str(pdu_config["pdu_name"])] = "pdu_to_ros"
+            rate = pdu_config.get("update_rate_hz")
+            if isinstance(rate, (int, float)) and rate > 0:
+                rate_by_name[str(pdu_config["pdu_name"])] = float(rate)
 
     selected: list[dict[str, object]] = []
     for pdu in pdu_entries:
         name = pdu.get("name")
         if isinstance(name, str) and name in direction_by_name:
-            selected.append({**pdu, "direction": direction_by_name[name]})
+            entry = {**pdu, "direction": direction_by_name[name]}
+            if name in rate_by_name:
+                entry["update_rate_hz"] = rate_by_name[name]
+            selected.append(entry)
     if not selected:
         raise Ros2TcpError("manifest exposes no actuator or state-output PDU bindings")
     return robot_name, selected, pdu_def_path, type_paths
@@ -146,8 +164,10 @@ def config_root(robot_id: str) -> Path:
 
 def configure(
     robot_id: str, port: int, remote_host: str | None = None, joint_trajectory: bool = True,
+    manifest_name: str = "asset-manifest.json",
 ) -> Path:
-    robot_name, pdus, pdu_def_path, type_paths = resolve_pdu_contract(robot_id, joint_trajectory)
+    robot_name, pdus, pdu_def_path, type_paths = resolve_pdu_contract(
+        robot_id, joint_trajectory, manifest_name)
     selected_remote_host = remote_host or os.environ.get(
         "HAKONIWA_ROS2_TCP_HOST", "host.docker.internal"
     )
@@ -228,23 +248,30 @@ def configure(
             "destinations": [{"endpointId": "host-shm"}],
             "transferPdus": [{"pduKeyGroupId": "commands", "policyId": "immediate"}],
         })
-    if state_pdus:
-        groups["states"] = [
+    # A state output goes to TCP at its own rate (a 5 Hz LiDAR every 200 ms, not
+    # every 20 ms), so that ROS does not receive the same message again and again.
+    policies: dict[str, object] = {"immediate": {"type": "immediate"}}
+    by_interval: dict[int, list[dict[str, object]]] = {}
+    for pdu in state_pdus:
+        interval = state_interval_ms(pdu)
+        by_interval.setdefault(interval, []).append(pdu)
+    for interval in sorted(by_interval):
+        policy_id = f"ticker_{interval}ms"
+        group_id = "states" if interval == DEFAULT_STATE_INTERVAL_MS else f"states_{interval}ms"
+        policies[policy_id] = {"type": "ticker", "intervalMs": interval}
+        groups[group_id] = [
             {"id": f"{robot_name}.{pdu['name']}", "robot_name": robot_name, "pdu_name": pdu["name"]}
-            for pdu in state_pdus
+            for pdu in by_interval[interval]
         ]
         connections.append({
-            "id": "shm_to_tcp", "nodeId": node_id,
+            "id": "shm_to_tcp" if group_id == "states" else f"shm_to_tcp_{interval}ms", "nodeId": node_id,
             "source": {"endpointId": "host-shm"},
             "destinations": [{"endpointId": "host-tcp"}],
-            "transferPdus": [{"pduKeyGroupId": "states", "policyId": "ticker_20ms"}],
+            "transferPdus": [{"pduKeyGroupId": group_id, "policyId": policy_id}],
         })
     write_json(output / "bridge" / "bridge.json", {
         "version": "2.0.0",
-        "transferPolicies": {
-            "immediate": {"type": "immediate"},
-            "ticker_20ms": {"type": "ticker", "intervalMs": 20},
-        },
+        "transferPolicies": policies,
         "nodes": [{"id": node_id}],
         "endpoints_config_path": "../endpoint/endpoint_container.json",
         "wireLinks": [],
