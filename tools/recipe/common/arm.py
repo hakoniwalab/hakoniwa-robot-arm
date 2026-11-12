@@ -721,7 +721,12 @@ def sensor_cmake_args() -> list[str]:
     ]
 
 
-def build(mujoco_root: Path, headless: bool, sensors: bool = False) -> int:
+def build(
+    mujoco_root: Path,
+    headless: bool,
+    sensors: bool = False,
+    controller_plugin: bool = False,
+) -> int:
     foundation, workspace = workspace_and_foundation()
     foundation_consumer = load_foundation_consumer_module()
     required(mujoco_root / "src/CMakeLists.txt", "hakoniwa-mujoco-robots sibling")
@@ -735,6 +740,7 @@ def build(mujoco_root: Path, headless: bool, sensors: bool = False) -> int:
         "-DHAKO_USE_THIRDPARTY_HAKONIWA=OFF",
         f"-DHAKO_ARM_ENABLE_VIEWER={'OFF' if headless else 'ON'}",
         *(sensor_cmake_args() if sensors else []),
+        f"-DHAKO_ROBOT_ARM_CONTROLLER_PLUGIN={'ON' if controller_plugin else 'OFF'}",
     ]
     if platform.system() == "Windows":
         # FetchContent's MSBuild sub-builds nest about 140 characters below
@@ -1038,6 +1044,10 @@ def parser() -> argparse.ArgumentParser:
         help="SO-101: the arm environment with the overhead 3D LiDAR and the wrist force-torque sensor "
              "(configure and build)")
     result.add_argument(
+        "--controller-plugin", action="store_true",
+        help="build the Runtime's controller plugin loader (manifest components of type "
+             "\"plugin\"; build only)")
+    result.add_argument(
         "--viewer-state", action="store_true",
         help="SO-101 with --sensors: also the states a Hakoniwa viewer reads "
              "(viewer_joint_states with joints named SO101/<joint>, viewer_body_states with the cube pose)")
@@ -1068,7 +1078,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "bucket-proxy":
             return bucket_proxy(args.viewer)
         if args.command == "build":
-            return build(absolute(args.mujoco_root), args.headless, args.sensors)
+            return build(
+                absolute(args.mujoco_root), args.headless, args.sensors, args.controller_plugin)
         if args.command == "doctor":
             return doctor(absolute(args.mujoco_root))
         if args.command == "start":
