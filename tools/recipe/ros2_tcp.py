@@ -16,6 +16,12 @@ from _hakoniwa_composer import HakoniwaComposerError, arm_root, workspace_work_d
 
 
 DEFAULT_PORT = 54001
+# The host bridge is a Hakoniwa asset. Its step must equal the Robot Runtime's
+# step (the MuJoCo physics step, 2 ms for the supplied arms): with a longer step
+# the Runtime waits for the bridge at the conductor's delay limit, takes no
+# commands meanwhile, and the Hakoniwa core refuses the next command PDU, which
+# the bridge then drops.
+DEFAULT_BRIDGE_DELTA_USEC = 2000
 DEFAULT_ROBOT = "nova5"
 
 
@@ -295,7 +301,7 @@ def doctor(robot_id: str) -> int:
     return 1 if failed else 0
 
 
-def start_host(robot_id: str) -> int:
+def start_host(robot_id: str, delta_time_step_usec: int = DEFAULT_BRIDGE_DELTA_USEC) -> int:
     output = config_root(robot_id)
     binary = host_bridge_binary(robot_id)
     if not binary.is_file():
@@ -303,7 +309,7 @@ def start_host(robot_id: str) -> int:
     command = [
         str(binary), "--config-root", str(output),
         "--node-name", "arm_ros2_tcp_node", "--asset-name", "Ros2TcpBridge",
-        "--delta-time-step-usec", "20000",
+        "--delta-time-step-usec", str(delta_time_step_usec),
     ]
     prefix = foundation_prefix()
     env = os.environ.copy()
@@ -327,6 +333,10 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--robot", default=DEFAULT_ROBOT)
     result.add_argument("--port", type=int, default=DEFAULT_PORT)
     result.add_argument(
+        "--delta-time-step-usec", type=int, default=DEFAULT_BRIDGE_DELTA_USEC,
+        help="host bridge step in usec; equal to the Robot Runtime physics step (default 2000)",
+    )
+    result.add_argument(
         "--remote-host",
         default=None,
         help="TCP server hostname seen by the ROS side (default: HAKONIWA_ROS2_TCP_HOST or host.docker.internal)",
@@ -347,7 +357,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "doctor":
             return doctor(args.robot)
-        return start_host(args.robot)
+        if args.delta_time_step_usec <= 0:
+            raise Ros2TcpError("--delta-time-step-usec must be positive")
+        return start_host(args.robot, args.delta_time_step_usec)
     except (HakoniwaComposerError, Ros2TcpError, OSError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
