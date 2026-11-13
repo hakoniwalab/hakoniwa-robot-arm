@@ -746,6 +746,7 @@ def build(
         f"-DHAKO_ARM_ENABLE_VIEWER={'OFF' if headless else 'ON'}",
         *(sensor_cmake_args() if sensors else []),
         f"-DHAKO_ROBOT_ARM_CONTROLLER_PLUGIN={'ON' if controller_plugin else 'OFF'}",
+        "-DHAKO_ARM_ENABLE_DOBOT=OFF",
     ]
     if platform.system() == "Windows":
         # FetchContent's MSBuild sub-builds nest about 140 characters below
