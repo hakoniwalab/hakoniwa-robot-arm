@@ -10,7 +10,7 @@
 
 | 利用構成 | 適したユーザー | シミュレータ | ROS 2 | 手順 |
 | --- | --- | --- | --- | --- |
-| host-standalone | ROS 2を使わず箱庭単体で確認する | Host | 使用しない | [setup](procedures/host-standalone/setup.md) → [build](procedures/host-standalone/build.md) → [operation](procedures/host-standalone/operation.md) |
+| host-standalone | Ubuntu／macOSでROS 2を使わず箱庭単体で確認する | Host | 使用しない | [setup](procedures/host-standalone/setup.md) → [build](procedures/host-standalone/build.md) → [operation](procedures/host-standalone/operation.md) |
 | windows-host-standalone | Windows nativeで箱庭単体を確認する | Windows Host | 使用しない | [setup](procedures/windows-host-standalone/setup.md) → [build](procedures/windows-host-standalone/build.md) → [operation](procedures/windows-host-standalone/operation.md) |
 | Excavator host-standalone | MathScavator9000をmacOS／Ubuntu 24.04／WSL2で箱庭単体で動かす | Host | 使用しない | [setup](procedures/excavator/host-standalone/setup.md) → [build](procedures/excavator/host-standalone/build.md) → [operation](procedures/excavator/host-standalone/operation.md) |
 | Excavator windows-host-standalone | MathScavator9000をWindows nativeで箱庭単体で動かす | Windows Host | 使用しない | [setup](procedures/excavator/windows-host-standalone/setup.md) → [build](procedures/excavator/windows-host-standalone/build.md) → [operation](procedures/excavator/windows-host-standalone/operation.md) |
