@@ -16,12 +16,13 @@ from _hakoniwa_composer import HakoniwaComposerError, arm_root, workspace_work_d
 
 
 DEFAULT_PORT = 54001
-# The host bridge is a Hakoniwa asset. Its step must equal the Robot Runtime's
-# step (the MuJoCo physics step, 2 ms for the supplied arms): with a longer step
-# the Runtime waits for the bridge at the conductor's delay limit, takes no
-# commands meanwhile, and the Hakoniwa core refuses the next command PDU, which
-# the bridge then drops.
-DEFAULT_BRIDGE_DELTA_USEC = 2000
+# The host bridge is a Hakoniwa asset; its step is --delta-time-step-usec
+# (default 20 ms). With a step longer than the Robot Runtime's (the MuJoCo
+# physics step, 2 ms for the supplied arms), the Runtime waits for the bridge at
+# the conductor's delay limit, takes no commands meanwhile, and the Hakoniwa core
+# refuses the next command PDU, which the bridge then drops (about 13 % at 50 Hz
+# with 20 ms). Commands sent at 50 Hz or faster need the Runtime's step (2000).
+DEFAULT_BRIDGE_DELTA_USEC = 20000
 # State outputs without a rate, and the fastest a state output is sent.
 DEFAULT_STATE_INTERVAL_MS = 20
 
@@ -114,8 +115,9 @@ def resolve_pdu_contract(
         component_config = load_json((recipe_dir / config_value).resolve())
         if not isinstance(component_config, dict):
             continue
-        # With ros2_control the ROS side interpolates (its joint_trajectory_controller):
-        # the Runtime's trajectory input is not bridged, so that nothing interpolates twice.
+        # Without the joint trajectory input, the ROS side sends joint commands it has
+        # interpolated itself: the Runtime's trajectory input is not bridged, so that
+        # nothing interpolates twice.
         if (joint_trajectory and kind == "controller"
                 and component.get("type") == "joint_trajectory_controller"):
             trajectory_input = component_config.get("input")
@@ -368,11 +370,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--port", type=int, default=DEFAULT_PORT)
     result.add_argument(
         "--delta-time-step-usec", type=int, default=DEFAULT_BRIDGE_DELTA_USEC,
-        help="host bridge step in usec; equal to the Robot Runtime physics step (default 2000)",
+        help="host bridge step in usec (default 20000); the Robot Runtime physics step (2000) for commands at 50 Hz or faster",
     )
     result.add_argument(
         "--no-joint-trajectory", dest="joint_trajectory", action="store_false",
-        help="do not bridge the Runtime's JointTrajectory input (ros2_control interpolates on the ROS side)",
+        help="do not bridge the Runtime's JointTrajectory input (the ROS side sends interpolated joint commands)",
     )
     result.add_argument(
         "--remote-host",
