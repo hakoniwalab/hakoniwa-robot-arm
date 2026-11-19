@@ -464,3 +464,20 @@ if(BUILD_TESTING AND HAKO_ARM_ENABLE_DOBOT)
     target_link_libraries(test-runtime-extensions PRIVATE hako-robot-arm-runtime)
     add_test(NAME runtime_extensions COMMAND test-runtime-extensions)
 endif()
+
+# The sensor stage's truth under strong velocity feedback (hakoniwa-robot-runtime
+# tests/test_sensor_truth_acceleration.cpp, issue #56). Needs the hakoniwa
+# implementation (its ideal force-torque adapter).
+if(BUILD_TESTING AND HAKO_ROBOT_ARM_ENABLE_SENSOR AND "hakoniwa" IN_LIST HAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS
+        AND EXISTS "${HAKO_ROBOT_RUNTIME_SRC_DIR}/../tests/test_sensor_truth_acceleration.cpp")
+    add_executable(test-sensor-truth-acceleration
+        "${HAKO_ROBOT_RUNTIME_SRC_DIR}/../tests/test_sensor_truth_acceleration.cpp")
+    target_compile_features(test-sensor-truth-acceleration PRIVATE cxx_std_20)
+    target_include_directories(test-sensor-truth-acceleration PRIVATE
+        "${HAKO_ROBOT_RUNTIME_SRC_DIR}")
+    target_include_directories(test-sensor-truth-acceleration SYSTEM PRIVATE
+        ${HAKO_MUJOCO_SOURCE_DIR})
+    target_link_libraries(test-sensor-truth-acceleration PRIVATE
+        hako-robot-arm-mujoco-adapter hako-robot-arm-runtime ${HAKO_ROBOT_ARM_SENSOR_LIBRARIES})
+    add_test(NAME sensor_truth_acceleration COMMAND test-sensor-truth-acceleration)
+endif()
