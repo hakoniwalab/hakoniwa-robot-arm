@@ -500,6 +500,8 @@ if(BUILD_TESTING AND HAKO_ROBOT_ARM_ENABLE_SENSOR AND "hakoniwa" IN_LIST HAKO_RO
     target_link_libraries(test-sensor-truth-acceleration PRIVATE
         hako-robot-arm-mujoco-adapter hako-robot-arm-runtime ${HAKO_ROBOT_ARM_SENSOR_LIBRARIES})
     add_test(NAME sensor_truth_acceleration COMMAND test-sensor-truth-acceleration)
+endif()
+
 # The force-torque vibration in the MuJoCo sensor stage (hakoniwa-robot-runtime
 # tests/test_sensor_vibration.cpp). Needs the hakoniwa implementation with its
 # host models, as an application that uses the vibration links them.
