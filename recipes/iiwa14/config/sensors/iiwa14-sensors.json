@@ -1,0 +1,25 @@
+{
+  "$schema": "https://hakoniwa.dev/schemas/sensor-instances.schema.json",
+  "schema_version": 1,
+  "sensors": [
+    {
+      "name": "wrist_ft",
+      "type": "force_torque",
+      "implementation": "reference",
+      "mount": {
+        "mjcf_body": "tool",
+        "position_m": [
+          0,
+          0,
+          0
+        ],
+        "orientation_deg": {
+          "roll": 0,
+          "pitch": 0,
+          "yaw": 0
+        }
+      },
+      "definition": "force_torque/wrist-ft-true.json"
+    }
+  ]
+}

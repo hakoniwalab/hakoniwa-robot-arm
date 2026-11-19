@@ -1,0 +1,6 @@
+{
+  "name": "iiwa14_endpoint",
+  "pdu_def_path": "../pdu/iiwa14-pdudef.json",
+  "cache": "cache_buffer.json",
+  "comm": "comm_shm.json"
+}
