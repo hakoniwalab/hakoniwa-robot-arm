@@ -1,0 +1,21 @@
+{
+  "description": "F/T sensor and tool mounted on the iiwa 14 flange. The tool mass and centre of mass are a fit to the 24-pose gravity calibration of the public KUKA LBR Med 14 + ATI Gamma recording (Zenodo 10.5281/zenodo.11096791, CC BY 4.0). Inertia values are coarse box estimates.",
+  "parent_body": "link7",
+  "flange_offset_m": 0.045,
+  "sensor": {
+    "body": "ft_sensor",
+    "mass_kg": 0.255,
+    "radius_m": 0.0375,
+    "height_m": 0.0333,
+    "diag_inertia": [0.0002, 0.0002, 0.0002],
+    "yaw_deg": 0.0
+  },
+  "tool": {
+    "body": "tool",
+    "mass_kg": 0.9323,
+    "com_m": [0.0003, 0.0001, 0.0439],
+    "half_size_m": [0.03, 0.03, 0.044],
+    "diag_inertia": [0.002, 0.002, 0.001]
+  },
+  "joint_armature": 2.0
+}

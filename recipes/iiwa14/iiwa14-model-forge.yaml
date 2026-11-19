@@ -1,0 +1,46 @@
+id: iiwa14-model-forge
+title: KUKA iiwa 14 Pinned MuJoCo Model Forge
+recipe_version: 1.0
+
+goal:
+  user_request: KUKA iiwa 14 の公開モデルを固定し、手首の F/T センサーと道具を付けて共通ランタイムで再現可能に使いたい
+  description: Fetch the pinned MuJoCo Menagerie iiwa 14 model, add position servos, gravity compensation and the wrist F/T sensor and tool, and materialize the MJCF and OBJ assets.
+
+feasibility: {status: feasible, confidence: high}
+validation:
+  status: verified
+  verified_at: 2026-11-19
+  summary: The pinned upstream MJCF, license, and thirteen OBJ meshes were forged twice with identical outputs; the wrist wrench during a 90-degree joint-6 sweep matches the model checked against the public KUKA recording within 4e-6 N.
+
+foundation_contract:
+  mode: not_required
+  reason: Model materialization is an offline operation and does not execute Hakoniwa Core.
+
+recipe_local_requirements_schema_version: 1
+recipe_local_requirements:
+  hakoniwa-mbody-registry:
+    root: {default_path: ../hakoniwa-mbody-registry, override_env: HAKONIWA_MBODY_REGISTRY_ROOT, relative_to: recipe_repository}
+    source: {type: git, url: "https://github.com/hakoniwalab/hakoniwa-mbody-registry.git", revision: main}
+    required_artifacts:
+      - {path: tools/fetch.py, kind: file}
+
+runtime_dependencies:
+  python:
+    requirements: recipes/iiwa14/model-forge-requirements.txt
+
+source_catalogs: [sources/models/iiwa14/source.yaml]
+source_artifacts:
+  - sources/models/iiwa14/LICENSE_INFO.yaml
+  - recipes/iiwa14/model-forge-requirements.txt
+artifacts:
+  - {name: iiwa 14 MJCF, owner: hakoniwa-robot-arm, path: $HAKONIWA_WORK_DIR/model-forge/iiwa14/install/iiwa14.xml, purpose: Physics and visualization input for the common arm runtime.}
+  - {name: iiwa 14 Checksums, owner: hakoniwa-robot-arm, path: $HAKONIWA_WORK_DIR/model-forge/iiwa14/install/SHA256SUMS, purpose: Verify the materialized model and upstream assets.}
+
+missing_pieces:
+  - Complete final license and redistribution review.
+
+demo:
+  objective: Regenerate the iiwa 14 model from the pinned source.
+  steps:
+    - {order: 1, component: hakoniwa-robot-arm, action: Run the work-owned iiwa 14 forge., command: "PYTHON_CMD=../hakoniwa-mbody-registry/.venv/bin/python3 recipes/iiwa14/forge-iiwa14.sh"}
+  success_signals: [iiwa14.xml and all referenced OBJ meshes are materialized]

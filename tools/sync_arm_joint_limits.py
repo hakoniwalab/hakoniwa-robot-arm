@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Synchronize derived arm joint limits from a source URDF.
+"""Synchronize derived arm joint limits from a source URDF (or source MJCF).
 
-The source URDF is the single source of truth.  This tool deliberately updates
+The source model is the single source of truth.  A source MJCF is accepted for
+robots published without a URDF; its joints must carry an explicit ``range``.  This tool deliberately updates
 only actuator ``ctrlrange`` and Runtime ``spec.limit`` values; actuator type,
 gains, bindings, and PDU settings remain recipe-owned.
 """
@@ -48,6 +49,33 @@ def read_urdf_limits(path: Path) -> dict[str, Limit]:
     if not limits:
         raise JointLimitError(f"no limited revolute/prismatic joints found in {path}")
     return limits
+
+
+def read_mjcf_limits(path: Path) -> dict[str, Limit]:
+    root = ET.parse(path).getroot()
+    compiler = root.find("compiler")
+    if compiler is None or compiler.get("angle") != "radian":
+        raise JointLimitError(f"source MJCF must use compiler angle=\"radian\": {path}")
+    limits: dict[str, Limit] = {}
+    for joint in root.findall(".//worldbody//joint"):
+        if joint.get("type", "hinge") not in {"hinge", "slide"}:
+            continue
+        name = joint.get("name")
+        if not name:
+            continue
+        parsed = _parse_range(joint.get("range"), f"source MJCF joint {name!r}")
+        if not parsed[0] < parsed[1]:
+            raise JointLimitError(f"source MJCF joint {name!r} has an invalid range: {parsed}")
+        limits[name] = parsed
+    if not limits:
+        raise JointLimitError(f"no ranged hinge/slide joints found in {path}")
+    return limits
+
+
+def read_source_limits(path: Path) -> dict[str, Limit]:
+    if ET.parse(path).getroot().tag == "mujoco":
+        return read_mjcf_limits(path)
+    return read_urdf_limits(path)
 
 
 def read_runtime_overrides(path: Path | None, source: dict[str, Limit]) -> dict[str, Limit]:
@@ -208,7 +236,7 @@ def validate_mjcf(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Synchronize derived arm limits from a source URDF without replacing tuned values."
+        description="Synchronize derived arm limits from a source URDF or MJCF without replacing tuned values."
     )
     parser.add_argument("source_urdf", type=Path)
     parser.add_argument("--runtime-config-dir", required=True, type=Path)
@@ -223,7 +251,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        source = read_urdf_limits(args.source_urdf)
+        source = read_source_limits(args.source_urdf)
         overrides = read_runtime_overrides(args.runtime_limit_overrides, source)
         runtime_joints = runtime_position_joints(args.runtime_config_dir)
         if args.validate_mjcf is not None:
