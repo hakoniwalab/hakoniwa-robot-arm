@@ -1,0 +1,59 @@
+schema_version: 1
+robot:
+  id: iiwa14
+  name: KUKA LBR iiwa 14 (MuJoCo Menagerie description)
+reviewed_at: 2026-11-19
+
+source:
+  repository: https://github.com/google-deepmind/mujoco_menagerie
+  revision: 370c43965323c0944b433b202aac5058b5f907a9
+  manifest: sources/models/iiwa14/source.yaml
+  upstream_paths:
+    - kuka_iiwa_14/LICENSE
+    - kuka_iiwa_14/README.md
+    - kuka_iiwa_14/iiwa14.xml
+    - kuka_iiwa_14/assets/
+
+observed_license_declarations:
+  - scope: pinned kuka_iiwa_14 model directory and its mesh assets
+    declared: BSD 3-Clause License (Drake, Robot Locomotion Group @ CSAIL)
+    spdx_expression: BSD-3-Clause
+    evidence: $HAKONIWA_WORK_DIR/model-forge/iiwa14/install/LICENSE
+  - scope: pinned kuka_iiwa_14 directory NOTICE file
+    declared: none found
+    spdx_expression: NOASSERTION
+    evidence: No NOTICE file exists in the pinned kuka_iiwa_14 directory.
+
+covered_local_artifacts:
+  upstream_material:
+    - $HAKONIWA_WORK_DIR/model-forge/iiwa14/install/LICENSE
+    - $HAKONIWA_WORK_DIR/model-forge/iiwa14/install/assets/*.obj
+  derived_material:
+    - $HAKONIWA_WORK_DIR/model-forge/iiwa14/install/iiwa14.xml
+    - $HAKONIWA_WORK_DIR/model-forge/iiwa14/install/SHA256SUMS
+
+local_changes:
+  - Gave every joint an explicit range, armature 2.0 and actuator gravity compensation.
+  - Enabled gravity compensation on the arm bodies and the added F/T sensor body.
+  - Replaced the general actuators by position actuators named after their joints (kp 2000, kv 200, upstream gains).
+  - Added an F/T sensor body and a tool body at the flange (recipes/iiwa14/config/model/wrist-payload.json).
+  - Set the MuJoCo timestep to 0.001 seconds and the integrator to Euler.
+  - Added Hakoniwa runtime manifests, PDU bindings, and demo configuration outside this directory.
+
+redistribution:
+  status: conditional
+  rationale: >-
+    The pinned model directory provides BSD-3-Clause terms. Redistribution is
+    possible after satisfying the license conditions and confirming that the
+    exact delivery contains no separately licensed material outside this
+    recorded source closure.
+  permitted_handling_of_upstream_artifacts: private_evaluation
+  required_actions:
+    - Include a copy of the Forge install LICENSE (copyright notice, conditions and disclaimer) with redistributed source or derived artifacts.
+    - Do not use the names of the copyright holder or contributors to endorse or promote derived products.
+    - Recheck the source closure and license evidence when changing the pinned revision.
+    - Treat KUKA, LBR and iiwa as trademarks of their owner; the license grants no trademark rights.
+
+notes:
+  - The tool mass and centre of mass in wrist-payload.json are a fit to a public recording (Zenodo 10.5281/zenodo.11096791, CC BY 4.0); only the fitted numbers are used, no data files are included.
+  - This inventory records repository evidence and is not legal advice.

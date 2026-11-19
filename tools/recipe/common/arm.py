@@ -737,10 +737,18 @@ def sensor_cmake_args() -> list[str]:
             "HAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS lists an implementation other than reference: "
             "set HAKO_ROBOT_ARM_SENSOR_LIBRARIES to its libraries "
             "(the hakoniwa implementation is provided by Hakoniwa Lab)")
+    # Optional: HAKO_ROBOT_ARM_SENSOR_HOST_MODELS (implementations that also provide
+    # host models, such as the force-torque vibration model) and
+    # HAKO_ROBOT_ARM_SENSOR_ADAPTER_ROOT (a hakoniwa-sensor-adapter checkout other
+    # than the sibling one).
+    host_models = os.environ.get("HAKO_ROBOT_ARM_SENSOR_HOST_MODELS", "").strip()
+    adapter_root = os.environ.get("HAKO_ROBOT_ARM_SENSOR_ADAPTER_ROOT", "").strip()
     return [
         "-DHAKO_ROBOT_ARM_ENABLE_SENSOR=ON",
         f"-DHAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS={implementations}",
         f"-DHAKO_ROBOT_ARM_SENSOR_LIBRARIES={libraries}",
+        f"-DHAKO_ROBOT_ARM_SENSOR_HOST_MODELS={host_models}",
+        *([f"-DHAKO_ROBOT_ARM_SENSOR_ADAPTER_ROOT={adapter_root}"] if adapter_root else []),
     ]
 
 
