@@ -98,6 +98,8 @@ set(HAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS "" CACHE STRING
     "Names of the linked sensor implementations, for example hakoniwa;gazebo")
 set(HAKO_ROBOT_ARM_SENSOR_LIBRARIES "" CACHE STRING
     "Libraries of the listed sensor implementations")
+set(HAKO_ROBOT_ARM_SENSOR_HOST_MODELS "" CACHE STRING
+    "Names of the listed sensor implementations that also provide host models (hako_sensor_host_model_<name>), for example the force-torque vibration model")
 if(HAKO_ROBOT_ARM_ENABLE_SENSOR)
     if(NOT EXISTS "${HAKO_ROBOT_ARM_SENSOR_ADAPTER_ROOT}/include/hakoniwa/sensor_adapter/sensor_adapter_implementation.hpp")
         message(FATAL_ERROR "hakoniwa-sensor-adapter with sensor_adapter_implementation.hpp not found: "
@@ -118,6 +120,15 @@ if(HAKO_ROBOT_ARM_ENABLE_SENSOR)
         string(APPEND _hako_sensor_registrations
             "    add(HAKO_SENSOR_ADAPTER_IMPLEMENTATION_ENTRY(${_hako_sensor_name})());\n")
     endforeach()
+    foreach(_hako_sensor_name IN LISTS HAKO_ROBOT_ARM_SENSOR_HOST_MODELS)
+        if(NOT _hako_sensor_name IN_LIST HAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS)
+            message(FATAL_ERROR "host models of ${_hako_sensor_name}: the implementation is not in HAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS")
+        endif()
+        string(APPEND _hako_sensor_declarations
+            "HAKO_SENSOR_HOST_MODEL_DECLARE(${_hako_sensor_name});\n")
+        string(APPEND _hako_sensor_registrations
+            "    add_host_models(HAKO_SENSOR_HOST_MODEL_ENTRY(${_hako_sensor_name})());\n")
+    endforeach()
     set(HAKO_ROBOT_ARM_SENSOR_REGISTRATION_SOURCE
         "${CMAKE_CURRENT_BINARY_DIR}/generated/sensor_implementations.cpp")
     file(WRITE "${HAKO_ROBOT_ARM_SENSOR_REGISTRATION_SOURCE}.in"
@@ -135,6 +146,15 @@ void add(const ::hakoniwa::sensor_adapter::SensorAdapterImplementation* implemen
     std::string error;
     if (!::hakoniwa::robot_runtime::runtime::sensor::sensor_implementation_registry().add(
             implementation, &error)) {
+        std::cerr << \"[ERROR] \" << error << std::endl;
+        std::abort();
+    }
+}
+void add_host_models(const ::hakoniwa::sensor_adapter::HostModelImplementation* models)
+{
+    std::string error;
+    if (!::hakoniwa::robot_runtime::runtime::sensor::sensor_implementation_registry().add_host_models(
+            models, &error)) {
         std::cerr << \"[ERROR] \" << error << std::endl;
         std::abort();
     }
@@ -480,4 +500,20 @@ if(BUILD_TESTING AND HAKO_ROBOT_ARM_ENABLE_SENSOR AND "hakoniwa" IN_LIST HAKO_RO
     target_link_libraries(test-sensor-truth-acceleration PRIVATE
         hako-robot-arm-mujoco-adapter hako-robot-arm-runtime ${HAKO_ROBOT_ARM_SENSOR_LIBRARIES})
     add_test(NAME sensor_truth_acceleration COMMAND test-sensor-truth-acceleration)
+endif()
+
+# The force-torque vibration in the MuJoCo sensor stage (hakoniwa-robot-runtime
+# tests/test_sensor_vibration.cpp). Needs the hakoniwa implementation with its
+# host models, as an application that uses the vibration links them.
+if(BUILD_TESTING AND HAKO_ROBOT_ARM_ENABLE_SENSOR AND "hakoniwa" IN_LIST HAKO_ROBOT_ARM_SENSOR_HOST_MODELS)
+    add_executable(test-sensor-vibration
+        "${HAKO_ROBOT_RUNTIME_SRC_DIR}/../tests/test_sensor_vibration.cpp")
+    target_compile_features(test-sensor-vibration PRIVATE cxx_std_20)
+    target_include_directories(test-sensor-vibration PRIVATE
+        "${HAKO_ROBOT_RUNTIME_SRC_DIR}")
+    target_include_directories(test-sensor-vibration SYSTEM PRIVATE
+        ${HAKO_MUJOCO_SOURCE_DIR})
+    target_link_libraries(test-sensor-vibration PRIVATE
+        hako-robot-arm-mujoco-adapter hako-robot-arm-runtime ${HAKO_ROBOT_ARM_SENSOR_LIBRARIES})
+    add_test(NAME sensor_vibration COMMAND test-sensor-vibration)
 endif()
