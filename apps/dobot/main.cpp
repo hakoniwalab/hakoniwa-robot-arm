@@ -10,9 +10,15 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         const std::string key = argv[i];
         if (key == "--no-viewer") { viewer = false; continue; }
+        if (key == "--rpc-service-config" &&
+            (i + 1 >= argc || argv[i + 1][0] == '\0' || argv[i + 1][0] == '-')) {
+            std::cerr << "--rpc-service-config expects a path\n";
+            return 2;
+        }
         if (i + 1 >= argc || (key != "--manifest" && key != "--service-config"
-            && key != "--rpc-endpoint" && key != "--node-id")) {
-            std::cerr << "Usage: robot-arm-dobot-asset --manifest FILE --service-config FILE --rpc-endpoint FILE [--node-id NAME] [--no-viewer]\n";
+            && key != "--rpc-endpoint" && key != "--node-id" && key != "--rpc-service-config")) {
+            std::cerr << "Usage: robot-arm-dobot-asset --manifest FILE --service-config FILE"
+                         " --rpc-endpoint FILE [--rpc-service-config FILE] [--node-id NAME] [--no-viewer]\n";
             return 2;
         }
         options[key] = argv[++i];
@@ -25,6 +31,7 @@ int main(int argc, char** argv) {
     config.endpoint_name = "dobot_runtime_endpoint";
     config.viewer_enabled = viewer;
     config.realtime_sync_cycle_msec = 1; // Match wall-time-driven official clients approximately.
+    config.rpc_service_config = options["--rpc-service-config"];
     config.configure_runtime = [options](rt::RuntimeExtensions& extensions,
                                           ::hakoniwa::pdu::Endpoint&) {
         auto model = std::make_shared<ServoModel>();

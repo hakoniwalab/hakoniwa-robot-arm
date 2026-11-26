@@ -120,6 +120,20 @@ if(WIN32)
     )
 endif()
 
+if(BUILD_TESTING)
+    add_executable(test-robot-arm-rpc-service-config
+        tests/test_rpc_service_config.cpp
+        common/manifest_runtime_app.cpp
+        common/robot_arm_app.cpp)
+    target_compile_features(test-robot-arm-rpc-service-config PRIVATE cxx_std_20)
+    target_compile_definitions(test-robot-arm-rpc-service-config PRIVATE HAKO_ARM_ENABLE_VIEWER=0)
+    target_include_directories(test-robot-arm-rpc-service-config PRIVATE common "${HAKO_RUNTIME_INCLUDE_DIR}")
+    foreach(case IN ITEMS missing-value next-option empty-value forward-path without-config)
+        add_test(NAME robot-arm-rpc-service-config-${case}
+            COMMAND test-robot-arm-rpc-service-config ${case})
+    endforeach()
+endif()
+
 option(HAKO_ARM_ENABLE_DOBOT "Build the Dobot ROS service compatible simulation backend" OFF)
 if(HAKO_ARM_ENABLE_DOBOT)
     set(HAKO_DOBOT_PDU_DIR "" CACHE PATH "Output of tools/dobot/generate_types.py")
