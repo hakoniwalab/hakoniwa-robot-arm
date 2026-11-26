@@ -58,8 +58,8 @@ if(HAKO_ARM_BUILD_EXCAVATOR)
     target_include_directories(robot-excavator-hakoniwa-asset PRIVATE
         ${HAKO_MUJOCO_ROBOTS_PROJECT_ROOT}/src
         ${HAKO_MUJOCO_ROBOTS_PROJECT_ROOT}/include
-        ${HAKO_ROBOT_RUNTIME_INCLUDE_DIR}
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}
+        ${HAKO_RUNTIME_INCLUDE_DIR}
+        ${HAKO_RUNTIME_SRC_DIR}
         ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/src/controllers
         ${HAKO_CORE_INCLUDE_BASE_IMPORTED}
@@ -100,7 +100,7 @@ if(HAKO_ROBOT_ARM_ENABLE_SENSOR)
     target_sources(robot-arm-hakoniwa-asset PRIVATE
         ${HAKO_ROBOT_ARM_SENSOR_REGISTRATION_SOURCE})
     target_include_directories(robot-arm-hakoniwa-asset PRIVATE
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR})
+        ${HAKO_RUNTIME_SRC_DIR})
     target_link_libraries(robot-arm-hakoniwa-asset PRIVATE
         ${HAKO_ROBOT_ARM_SENSOR_LIBRARIES})
 endif()
@@ -131,7 +131,7 @@ if(HAKO_ARM_ENABLE_DOBOT)
     target_compile_features(robot-arm-dobot-asset PRIVATE cxx_std_20)
     target_compile_definitions(robot-arm-dobot-asset PRIVATE HAKO_ARM_ENABLE_DOBOT=1 HAKO_ARM_ENABLE_VIEWER=$<BOOL:${HAKO_ARM_ENABLE_VIEWER}>)
     target_include_directories(robot-arm-dobot-asset PRIVATE
-        common "${HAKO_ROBOT_RUNTIME_SRC_DIR}" "${HAKO_DOBOT_PDU_DIR}/pdu/types"
+        common "${HAKO_RUNTIME_SRC_DIR}" "${HAKO_DOBOT_PDU_DIR}/pdu/types"
         "${HAKO_MUJOCO_ROBOTS_PROJECT_ROOT}/src" "${HAKO_MUJOCO_ROBOTS_PROJECT_ROOT}/include")
     target_include_directories(robot-arm-dobot-asset SYSTEM PRIVATE
         "${HAKO_MUJOCO_SOURCE_DIR}" "${HAKO_MUJOCO_ROBOTS_PROJECT_ROOT}/thirdparty/nolman/single_include")
