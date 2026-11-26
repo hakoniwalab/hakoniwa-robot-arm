@@ -60,6 +60,7 @@ add_library(hako-robot-arm-runtime STATIC
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/multi_dof_joint_state_publisher.cpp
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/source/ackermann_drive_command_source.cpp
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/controller/ackermann_controller.cpp
+    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/service/async_service_pipeline.cpp
 )
 target_compile_features(hako-robot-arm-runtime PUBLIC cxx_std_20)
 target_compile_definitions(hako-robot-arm-runtime PUBLIC HAKONIWA_ROBOT_RUNTIME_ENABLE_MOBILE_BASE=1)
@@ -358,6 +359,10 @@ add_library(hako-robot-arm-endpoint-adapter STATIC
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/joy_pdu_event_reader.cpp
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/multi_dof_joint_state_pdu_writer.cpp
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/ackermann_drive_pdu_event_reader.cpp
+    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/ackermann_drive_rpc_event_reader.cpp
+    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/ackermann_step_service.cpp
+    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/person_step_rpc_event_reader.cpp
+    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/person_step_service.cpp
 )
 if(HAKO_ROBOT_ARM_ENABLE_SENSOR)
     target_sources(hako-robot-arm-endpoint-adapter PRIVATE
@@ -400,6 +405,8 @@ target_link_libraries(hako-robot-arm-endpoint-adapter PRIVATE
 
 add_library(hako-robot-arm-hakoniwa-runner STATIC
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/runner_factory.cpp
+    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/lockstep_gate.cpp
+    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/hakoniwa/core_async_service_server.cpp
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/hakoniwa/hakoniwa_asset_driver.cpp
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/hakoniwa/hakoniwa_runner.cpp
 )
@@ -452,6 +459,7 @@ target_include_directories(hako-robot-arm-manifest-factory PUBLIC
 target_include_directories(hako-robot-arm-manifest-factory PRIVATE
     ${HAKO_ROBOT_RUNTIME_SRC_DIR}
     ${HAKONIWA_FOUNDATION_PREFIX}/include
+    ${HAKONIWA_FOUNDATION_PREFIX}/include/hakoniwa/pdu
 )
 target_include_directories(hako-robot-arm-manifest-factory SYSTEM PRIVATE
     ${HAKO_MUJOCO_SOURCE_DIR}
