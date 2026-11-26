@@ -19,6 +19,7 @@ struct LaunchOptions {
     std::string endpoint_name {kDefaultEndpointName};
     bool viewer_enabled {true};
     std::uint64_t realtime_sync_cycle_msec {0};
+    std::string rpc_service_config;
 };
 
 std::string env_or_default(const char* name, const char* fallback)
@@ -34,9 +35,11 @@ void print_usage(const char* program)
         << "  " << program << " <asset-manifest.json>\n"
         << "  " << program
         << " --manifest <asset-manifest.json> [--no-viewer]"
-           " [--realtime-sync-cycle-msec <0..>]\n\n"
+           " [--realtime-sync-cycle-msec <0..>] [--rpc-service-config <file>]\n\n"
         << "Options:\n"
         << "  --no-viewer    Run without a MuJoCo window.\n"
+        << "  --rpc-service-config <file>\n"
+        << "                 Core service definitions for manifest services.\n"
         << "  --realtime-sync-cycle-msec <0..>\n"
         << "                 Reconcile simulation and wall time at this interval.\n\n"
         << "Environment:\n"
@@ -67,6 +70,13 @@ bool parse_options(const int argc, char** argv, LaunchOptions& options)
         }
         if (argument == "--no-viewer") {
             options.viewer_enabled = false;
+            continue;
+        }
+        if (argument == "--rpc-service-config") {
+            if (++index >= argc || argv[index][0] == '\0' || argv[index][0] == '-') {
+                throw std::invalid_argument("--rpc-service-config expects a path");
+            }
+            options.rpc_service_config = argv[index];
             continue;
         }
         if (argument == "--realtime-sync-cycle-msec") {
@@ -137,6 +147,7 @@ int run_robot_arm_app(int argc, char** argv)
             options.endpoint_name,
             options.viewer_enabled,
             options.realtime_sync_cycle_msec,
+            options.rpc_service_config,
         });
 }
 

@@ -11,6 +11,7 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <utility>
 
 namespace hakoniwa::robot_arm::apps::common {
 namespace {
@@ -35,20 +36,18 @@ int run_manifest_runtime_app(
 {
     std::unique_ptr<::hakoniwa::robot_runtime::runner::IRunner> runtime_runner;
     try {
-#if defined(HAKO_ARM_ENABLE_DOBOT) && HAKO_ARM_ENABLE_DOBOT
         ::hakoniwa::robot_runtime::factory::ManifestFactoryConfig factory_config;
         factory_config.asset_name = config.asset_name;
         factory_config.endpoint_name = config.endpoint_name;
         factory_config.realtime_sync_cycle_msec = config.realtime_sync_cycle_msec;
+        factory_config.async_rpc_service_definition_path = config.rpc_service_config;
+#if defined(HAKO_ARM_ENABLE_DOBOT) && HAKO_ARM_ENABLE_DOBOT
         factory_config.configure_runtime = config.configure_runtime;
+#endif
         runtime_runner =
             ::hakoniwa::robot_runtime::factory::ManifestFactory::create(
                 manifest_path,
                 std::move(factory_config));
-#else
-        runtime_runner = ::hakoniwa::robot_runtime::factory::ManifestFactory::create(
-            manifest_path, {config.asset_name, config.endpoint_name, config.realtime_sync_cycle_msec});
-#endif
     } catch (const std::exception& error) {
         std::cerr << "[ERROR] Failed to create Runtime from manifest: "
                   << error.what() << std::endl;

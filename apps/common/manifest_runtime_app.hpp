@@ -16,6 +16,7 @@ struct ManifestRuntimeAppConfig {
     std::string endpoint_name;
     bool viewer_enabled {true};
     std::uint64_t realtime_sync_cycle_msec {0};
+    std::string rpc_service_config;
 #if defined(HAKO_ARM_ENABLE_DOBOT) && HAKO_ARM_ENABLE_DOBOT
     std::function<void(
         ::hakoniwa::robot_runtime::runtime::RuntimeExtensions&,
