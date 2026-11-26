@@ -19,23 +19,34 @@ set(HAKONIWA_ROBOT_RUNTIME_ROOT
 
 get_filename_component(HAKO_ROBOT_RUNTIME_SOURCE_DIR
     "${HAKONIWA_ROBOT_RUNTIME_ROOT}" ABSOLUTE)
-set(HAKO_ROBOT_RUNTIME_INCLUDE_DIR
-    "${HAKO_ROBOT_RUNTIME_SOURCE_DIR}/include")
-set(HAKO_ROBOT_RUNTIME_SRC_DIR
-    "${HAKO_ROBOT_RUNTIME_SOURCE_DIR}/src")
-
-if(NOT EXISTS "${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/actuator_runtime.cpp")
+if(NOT EXISTS "${HAKO_ROBOT_RUNTIME_SOURCE_DIR}/cmake/HakoniwaRobotRuntimeSources.cmake")
     message(FATAL_ERROR
-        "hakoniwa-robot-runtime sibling checkout was not found:\n"
-        "  ${HAKO_ROBOT_RUNTIME_SOURCE_DIR}\n"
-        "Clone it next to this repository or set "
-        "HAKONIWA_ROBOT_RUNTIME_ROOT.")
+        "Runtime source catalog was not found under ${HAKO_ROBOT_RUNTIME_SOURCE_DIR}.\n"
+        "Set HAKONIWA_ROBOT_RUNTIME_ROOT to a checkout with "
+        "cmake/HakoniwaRobotRuntimeSources.cmake.")
 endif()
+
+set(_hako_default_foundation_prefix
+    "${CMAKE_CURRENT_SOURCE_DIR}/work/foundation/install")
+if(DEFINED ENV{HAKONIWA_HOME} AND
+   NOT "$ENV{HAKONIWA_HOME}" STREQUAL "")
+    set(_hako_default_foundation_prefix "$ENV{HAKONIWA_HOME}")
+endif()
+if(DEFINED ENV{HAKONIWA_FOUNDATION_PREFIX} AND
+   NOT "$ENV{HAKONIWA_FOUNDATION_PREFIX}" STREQUAL "")
+    set(_hako_default_foundation_prefix "$ENV{HAKONIWA_FOUNDATION_PREFIX}")
+endif()
+set(HAKONIWA_FOUNDATION_PREFIX
+    "${_hako_default_foundation_prefix}" CACHE PATH
+    "Hakoniwa Foundation install prefix")
+
+include("${HAKO_ROBOT_RUNTIME_SOURCE_DIR}/cmake/HakoniwaRobotRuntimeSources.cmake")
+
 if(NOT EXISTS
-   "${HAKO_ROBOT_RUNTIME_INCLUDE_DIR}/hakoniwa/robot_runtime/runner/runner.hpp")
+   "${HAKO_RUNTIME_INCLUDE_DIR}/hakoniwa/robot_runtime/runner/runner.hpp")
     message(FATAL_ERROR
         "hakoniwa-robot-runtime public include layout is not prepared:\n"
-        "  ${HAKO_ROBOT_RUNTIME_INCLUDE_DIR}/hakoniwa/robot_runtime\n"
+        "  ${HAKO_RUNTIME_INCLUDE_DIR}/hakoniwa/robot_runtime\n"
         "Expected the runtime public headers under "
         "include/hakoniwa/robot_runtime.")
 endif()
@@ -43,30 +54,22 @@ message(STATUS
     "Hakoniwa robot runtime root: ${HAKO_ROBOT_RUNTIME_SOURCE_DIR}")
 
 add_library(hako-robot-arm-runtime STATIC
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/actuator_runtime.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/runtime_factory.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/source/scalar_pdu_command_source.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/source/joint_trajectory_command_source.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/source/joy_command_source.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/controller/scalar_pdu_command_controller.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/controller/joint_trajectory_controller.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/controller/manual_controller.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/controller/hold_controller.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/arbiter/priority_command_arbiter.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/joint_state_publisher.cpp
+    ${HAKO_RUNTIME_ACTUATOR_LOOP_SOURCES}
+    ${HAKO_RUNTIME_ACTUATOR_COMPONENTS_SOURCES}
+    ${HAKO_RUNTIME_SCALAR_PDU_COMMAND_SOURCES}
+    ${HAKO_RUNTIME_HOLD_CONTROLLER_SOURCES}
     # The Runtime's mobile-base switch (as Urban): MultiDOF body-state outputs
     # (an object's pose, e.g. for a viewer) and the Ackermann parts it brings.
     # A manifest without those components runs as before.
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/multi_dof_joint_state_publisher.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/source/ackermann_drive_command_source.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/controller/ackermann_controller.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/service/async_service_pipeline.cpp
+    ${HAKO_RUNTIME_MOBILE_BASE_STATE_SOURCES}
+    ${HAKO_RUNTIME_MOBILE_BASE_COMMAND_SOURCES}
+    ${HAKO_RUNTIME_ASYNC_PIPELINE_SOURCES}
 )
 target_compile_features(hako-robot-arm-runtime PUBLIC cxx_std_20)
-target_compile_definitions(hako-robot-arm-runtime PUBLIC HAKONIWA_ROBOT_RUNTIME_ENABLE_MOBILE_BASE=1)
+target_compile_definitions(hako-robot-arm-runtime PUBLIC ${HAKO_RUNTIME_MOBILE_BASE_DEFINE}=1)
 target_include_directories(hako-robot-arm-runtime PUBLIC
-    ${HAKO_ROBOT_RUNTIME_INCLUDE_DIR}
-    $<BUILD_INTERFACE:${HAKO_ROBOT_RUNTIME_SRC_DIR}>
+    ${HAKO_RUNTIME_INCLUDE_DIR}
+    $<BUILD_INTERFACE:${HAKO_RUNTIME_SRC_DIR}>
 )
 
 # Controller plugins are opt-in: a manifest component {"kind": "controller",
@@ -76,13 +79,12 @@ target_include_directories(hako-robot-arm-runtime PUBLIC
 option(HAKO_ROBOT_ARM_CONTROLLER_PLUGIN "Build the Runtime controller plugin loader" OFF)
 if(HAKO_ROBOT_ARM_CONTROLLER_PLUGIN)
     target_sources(hako-robot-arm-runtime PRIVATE
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/plugin/plugin_library.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/controller/plugin_controller.cpp
+        ${HAKO_RUNTIME_CONTROLLER_PLUGIN_SOURCES}
     )
     # PUBLIC: the switch changes RuntimeDefinition, so every library that
     # sees it must be compiled with the same value.
     target_compile_definitions(hako-robot-arm-runtime PUBLIC
-        HAKONIWA_ROBOT_RUNTIME_ENABLE_CONTROLLER_PLUGIN=1)
+        ${HAKO_RUNTIME_CONTROLLER_PLUGIN_DEFINE}=1)
     target_link_libraries(hako-robot-arm-runtime PUBLIC ${CMAKE_DL_LIBS})
 endif()
 
@@ -168,18 +170,8 @@ ${_hako_sensor_registrations}    return true;
     configure_file("${HAKO_ROBOT_ARM_SENSOR_REGISTRATION_SOURCE}.in"
         "${HAKO_ROBOT_ARM_SENSOR_REGISTRATION_SOURCE}" COPYONLY)
     target_sources(hako-robot-arm-runtime PRIVATE
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/sensor/sensor_registry.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_joint_state_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_wrench_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_imu_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_laser_scan_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_point_cloud_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_range_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_depth_image_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_compressed_image_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_magnetic_field_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_fluid_pressure_publisher.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/publisher/sensor_nav_sat_fix_publisher.cpp
+        ${HAKO_RUNTIME_SENSOR_REGISTRY_SOURCES}
+        ${HAKO_RUNTIME_SENSOR_PUBLISHERS_SOURCES}
     )
     # hakoniwa-sensor-adapter's reference implementation (the true values) is built
     # from source; the other implementations come as HAKO_ROBOT_ARM_SENSOR_LIBRARIES.
@@ -194,8 +186,8 @@ ${_hako_sensor_registrations}    return true;
         # nlohmann/json for it: added below, once hakoniwa-mujoco-robots is imported.
     endif()
     target_compile_definitions(hako-robot-arm-runtime PUBLIC
-        HAKONIWA_ROBOT_RUNTIME_ENABLE_SENSOR=1
-        HAKONIWA_ROBOT_RUNTIME_SENSOR_CATALOG_PATH="${HAKO_ROBOT_RUNTIME_SOURCE_DIR}/catalog/sensor-implementations.json"
+        ${HAKO_RUNTIME_SENSOR_DEFINE}=1
+        ${HAKO_RUNTIME_SENSOR_CATALOG_DEFINITION}
     )
     target_include_directories(hako-robot-arm-runtime PUBLIC
         ${HAKO_ROBOT_ARM_SENSOR_ADAPTER_ROOT}/include)
@@ -211,20 +203,6 @@ endif()
 set(HAKONIWA_MUJOCO_ROBOTS_ROOT
     "${_hako_default_mujoco_robots_root}" CACHE PATH
     "Sibling checkout of hakoniwa-mujoco-robots")
-
-set(_hako_default_foundation_prefix
-    "${CMAKE_CURRENT_SOURCE_DIR}/work/foundation/install")
-if(DEFINED ENV{HAKONIWA_HOME} AND
-   NOT "$ENV{HAKONIWA_HOME}" STREQUAL "")
-    set(_hako_default_foundation_prefix "$ENV{HAKONIWA_HOME}")
-endif()
-if(DEFINED ENV{HAKONIWA_FOUNDATION_PREFIX} AND
-   NOT "$ENV{HAKONIWA_FOUNDATION_PREFIX}" STREQUAL "")
-    set(_hako_default_foundation_prefix "$ENV{HAKONIWA_FOUNDATION_PREFIX}")
-endif()
-set(HAKONIWA_FOUNDATION_PREFIX
-    "${_hako_default_foundation_prefix}" CACHE PATH
-    "Hakoniwa Foundation install prefix")
 
 get_filename_component(HAKO_MUJOCO_ROBOTS_SOURCE_DIR
     "${HAKONIWA_MUJOCO_ROBOTS_ROOT}" ABSOLUTE)
@@ -316,11 +294,11 @@ find_library(HAKO_PDU_ENDPOINT_LINK_TARGET_IMPORTED
     REQUIRED NO_DEFAULT_PATH)
 
 add_library(hako-robot-arm-mujoco-adapter STATIC
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/physics/mujoco/mujoco_actuator_plant.cpp
+    ${HAKO_RUNTIME_MUJOCO_PLANT_SOURCES}
 )
 if(HAKO_ROBOT_ARM_ENABLE_SENSOR)
     target_sources(hako-robot-arm-mujoco-adapter PRIVATE
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/physics/mujoco/mujoco_sensor_stage.cpp)
+        ${HAKO_RUNTIME_SENSOR_MUJOCO_SOURCES})
     # The world's ray caster for range sensors (hakoniwa-mujoco-robots).
     target_compile_definitions(hako-robot-arm-mujoco-adapter PRIVATE
         HAKO_MUJOCO_ROBOTS_ENABLE_RAY_CASTER
@@ -332,10 +310,10 @@ if(HAKO_ROBOT_ARM_ENABLE_SENSOR)
 endif()
 target_compile_features(hako-robot-arm-mujoco-adapter PUBLIC cxx_std_20)
 target_include_directories(hako-robot-arm-mujoco-adapter PUBLIC
-    ${HAKO_ROBOT_RUNTIME_INCLUDE_DIR}
+    ${HAKO_RUNTIME_INCLUDE_DIR}
 )
 target_include_directories(hako-robot-arm-mujoco-adapter PRIVATE
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}
+    ${HAKO_RUNTIME_SRC_DIR}
     ${HAKO_MUJOCO_ROBOTS_PROJECT_ROOT}/src
     ${HAKO_MUJOCO_ROBOTS_PROJECT_ROOT}/include
 )
@@ -353,43 +331,31 @@ target_link_libraries(hako-robot-arm-mujoco-adapter PUBLIC
 )
 
 add_library(hako-robot-arm-endpoint-adapter STATIC
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/float64_pdu_event_reader.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/joint_state_pdu_writer.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/joint_trajectory_pdu_event_reader.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/joy_pdu_event_reader.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/multi_dof_joint_state_pdu_writer.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/ackermann_drive_pdu_event_reader.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/ackermann_drive_rpc_event_reader.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/ackermann_step_service.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/person_step_rpc_event_reader.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/person_step_service.cpp
+    ${HAKO_RUNTIME_ACTUATOR_PDU_SOURCES}
+    ${HAKO_RUNTIME_MOBILE_BASE_PDU_SOURCES}
+    ${HAKO_RUNTIME_ACKERMANN_STEP_READER_SOURCES}
+    ${HAKO_RUNTIME_ACKERMANN_STEP_SERVICE_SOURCES}
+    ${HAKO_RUNTIME_PERSON_STEP_READER_SOURCES}
+    ${HAKO_RUNTIME_PERSON_STEP_SERVICE_SOURCES}
 )
 if(HAKO_ROBOT_ARM_ENABLE_SENSOR)
     target_sources(hako-robot-arm-endpoint-adapter PRIVATE
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/wrench_stamped_pdu_writer.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/imu_pdu_writer.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/laser_scan_pdu_writer.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/point_cloud2_pdu_writer.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/range_pdu_writer.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/depth_image_pdu_writer.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/compressed_image_pdu_writer.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/magnetic_field_pdu_writer.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/fluid_pressure_pdu_writer.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/adapters/endpoint/nav_sat_fix_pdu_writer.cpp)
+        ${HAKO_RUNTIME_SENSOR_PDU_SOURCES})
     # JPEG for sensor_msgs/CompressedImage (stb_image_write, vendored in the Runtime).
     target_include_directories(hako-robot-arm-endpoint-adapter SYSTEM PRIVATE
-        ${HAKO_ROBOT_RUNTIME_SOURCE_DIR}/third_party)
+        ${HAKO_RUNTIME_THIRD_PARTY_INCLUDE_DIR})
 endif()
 target_compile_features(hako-robot-arm-endpoint-adapter PUBLIC cxx_std_20)
 target_include_directories(hako-robot-arm-endpoint-adapter PUBLIC
-    ${HAKO_ROBOT_RUNTIME_INCLUDE_DIR}
-    ${HAKONIWA_FOUNDATION_PREFIX}/include/hakoniwa
+    ${HAKO_RUNTIME_INCLUDE_DIR}
+    ${HAKO_RUNTIME_FOUNDATION_HAKONIWA_INCLUDE_DIR}
 )
 target_include_directories(hako-robot-arm-endpoint-adapter PRIVATE
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}
+    ${HAKO_RUNTIME_SRC_DIR}
     ${HAKO_MUJOCO_ROBOTS_PROJECT_ROOT}/include
-    ${HAKONIWA_FOUNDATION_PREFIX}/include
+    # Resolve primitive PDU headers from the same tree as the generated types.
     ${HAKO_PDU_TYPES_INCLUDE_DIR_IMPORTED}
+    ${HAKO_RUNTIME_FOUNDATION_INCLUDE_DIR}
 )
 target_include_directories(hako-robot-arm-endpoint-adapter SYSTEM PRIVATE
     ${HAKO_MUJOCO_SOURCE_DIR}
@@ -404,20 +370,20 @@ target_link_libraries(hako-robot-arm-endpoint-adapter PRIVATE
 )
 
 add_library(hako-robot-arm-hakoniwa-runner STATIC
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/runner_factory.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/lockstep_gate.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/hakoniwa/core_async_service_server.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/hakoniwa/hakoniwa_asset_driver.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runner/hakoniwa/hakoniwa_runner.cpp
+    ${HAKO_RUNTIME_RUNNER_FACTORY_SOURCES}
+    ${HAKO_RUNTIME_LOCKSTEP_GATE_SOURCES}
+    ${HAKO_RUNTIME_CORE_ASYNC_SERVER_SOURCES}
+    ${HAKO_RUNTIME_HAKONIWA_ASSET_DRIVER_SOURCES}
+    ${HAKO_RUNTIME_HAKONIWA_RUNNER_SOURCES}
 )
 target_compile_features(hako-robot-arm-hakoniwa-runner PUBLIC cxx_std_20)
 target_include_directories(hako-robot-arm-hakoniwa-runner PUBLIC
-    ${HAKO_ROBOT_RUNTIME_INCLUDE_DIR}
+    ${HAKO_RUNTIME_INCLUDE_DIR}
 )
 target_include_directories(hako-robot-arm-hakoniwa-runner PRIVATE
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}
-    ${HAKONIWA_FOUNDATION_PREFIX}/include
-    ${HAKONIWA_FOUNDATION_PREFIX}/include/hakoniwa
+    ${HAKO_RUNTIME_SRC_DIR}
+    ${HAKO_RUNTIME_FOUNDATION_INCLUDE_DIR}
+    ${HAKO_RUNTIME_FOUNDATION_HAKONIWA_INCLUDE_DIR}
 )
 target_include_directories(hako-robot-arm-hakoniwa-runner SYSTEM PRIVATE
     ${HAKO_MUJOCO_SOURCE_DIR}
@@ -434,32 +400,27 @@ target_link_libraries(hako-robot-arm-hakoniwa-runner PRIVATE
 )
 
 add_library(hako-robot-arm-manifest-factory STATIC
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/factory/manifest_factory.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/factory/manifest_factory_manifest.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/runtime_factory_manifest.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/runtime_factory_actuator.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/runtime_factory_trajectory.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/runtime_factory_manual.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/runtime_factory_state_output.cpp
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/runtime_factory_ackermann.cpp
+    ${HAKO_RUNTIME_MANIFEST_FACTORY_SOURCES}
+    ${HAKO_RUNTIME_ACTUATOR_MANIFEST_SOURCES}
+    ${HAKO_RUNTIME_MOBILE_BASE_MANIFEST_SOURCES}
 )
 if(HAKO_ROBOT_ARM_CONTROLLER_PLUGIN)
     target_sources(hako-robot-arm-manifest-factory PRIVATE
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/runtime_factory_plugin.cpp)
+        ${HAKO_RUNTIME_CONTROLLER_PLUGIN_MANIFEST_SOURCES})
 endif()
 if(HAKO_ROBOT_ARM_ENABLE_SENSOR)
     target_sources(hako-robot-arm-manifest-factory PRIVATE
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/runtime_factory_sensor.cpp
-        ${HAKO_ROBOT_RUNTIME_SRC_DIR}/runtime/sensor/sensor_catalog.cpp)
+        ${HAKO_RUNTIME_SENSOR_MANIFEST_SOURCES}
+)
 endif()
 target_compile_features(hako-robot-arm-manifest-factory PUBLIC cxx_std_20)
 target_include_directories(hako-robot-arm-manifest-factory PUBLIC
-    ${HAKO_ROBOT_RUNTIME_INCLUDE_DIR}
+    ${HAKO_RUNTIME_INCLUDE_DIR}
 )
 target_include_directories(hako-robot-arm-manifest-factory PRIVATE
-    ${HAKO_ROBOT_RUNTIME_SRC_DIR}
-    ${HAKONIWA_FOUNDATION_PREFIX}/include
-    ${HAKONIWA_FOUNDATION_PREFIX}/include/hakoniwa/pdu
+    ${HAKO_RUNTIME_SRC_DIR}
+    ${HAKO_RUNTIME_FOUNDATION_PDU_INCLUDE_DIR}
+    ${HAKO_RUNTIME_FOUNDATION_INCLUDE_DIR}
 )
 target_include_directories(hako-robot-arm-manifest-factory SYSTEM PRIVATE
     ${HAKO_MUJOCO_SOURCE_DIR}
@@ -485,10 +446,10 @@ add_subdirectory(
 
 if(BUILD_TESTING AND HAKO_ARM_ENABLE_DOBOT)
     add_executable(test-runtime-extensions
-        "${HAKO_ROBOT_RUNTIME_SRC_DIR}/../tests/test_runtime_extensions.cpp")
+        "${HAKO_RUNTIME_ROOT}/tests/test_runtime_extensions.cpp")
     target_compile_features(test-runtime-extensions PRIVATE cxx_std_20)
     target_include_directories(test-runtime-extensions PRIVATE
-        "${HAKO_ROBOT_RUNTIME_SRC_DIR}")
+        "${HAKO_RUNTIME_SRC_DIR}")
     target_link_libraries(test-runtime-extensions PRIVATE hako-robot-arm-runtime)
     add_test(NAME runtime_extensions COMMAND test-runtime-extensions)
 endif()
@@ -497,12 +458,12 @@ endif()
 # tests/test_sensor_truth_acceleration.cpp, issue #56). Needs the hakoniwa
 # implementation (its ideal force-torque adapter).
 if(BUILD_TESTING AND HAKO_ROBOT_ARM_ENABLE_SENSOR AND "hakoniwa" IN_LIST HAKO_ROBOT_ARM_SENSOR_IMPLEMENTATIONS
-        AND EXISTS "${HAKO_ROBOT_RUNTIME_SRC_DIR}/../tests/test_sensor_truth_acceleration.cpp")
+        AND EXISTS "${HAKO_RUNTIME_ROOT}/tests/test_sensor_truth_acceleration.cpp")
     add_executable(test-sensor-truth-acceleration
-        "${HAKO_ROBOT_RUNTIME_SRC_DIR}/../tests/test_sensor_truth_acceleration.cpp")
+        "${HAKO_RUNTIME_ROOT}/tests/test_sensor_truth_acceleration.cpp")
     target_compile_features(test-sensor-truth-acceleration PRIVATE cxx_std_20)
     target_include_directories(test-sensor-truth-acceleration PRIVATE
-        "${HAKO_ROBOT_RUNTIME_SRC_DIR}")
+        "${HAKO_RUNTIME_SRC_DIR}")
     target_include_directories(test-sensor-truth-acceleration SYSTEM PRIVATE
         ${HAKO_MUJOCO_SOURCE_DIR})
     target_link_libraries(test-sensor-truth-acceleration PRIVATE
@@ -515,10 +476,10 @@ endif()
 # host models, as an application that uses the vibration links them.
 if(BUILD_TESTING AND HAKO_ROBOT_ARM_ENABLE_SENSOR AND "hakoniwa" IN_LIST HAKO_ROBOT_ARM_SENSOR_HOST_MODELS)
     add_executable(test-sensor-vibration
-        "${HAKO_ROBOT_RUNTIME_SRC_DIR}/../tests/test_sensor_vibration.cpp")
+        "${HAKO_RUNTIME_ROOT}/tests/test_sensor_vibration.cpp")
     target_compile_features(test-sensor-vibration PRIVATE cxx_std_20)
     target_include_directories(test-sensor-vibration PRIVATE
-        "${HAKO_ROBOT_RUNTIME_SRC_DIR}")
+        "${HAKO_RUNTIME_SRC_DIR}")
     target_include_directories(test-sensor-vibration SYSTEM PRIVATE
         ${HAKO_MUJOCO_SOURCE_DIR})
     target_link_libraries(test-sensor-vibration PRIVATE
